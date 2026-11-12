@@ -21,9 +21,8 @@ if (carousel) {
   const dots = carousel.querySelector('.product-dots');
   const count = document.querySelector('.product-count');
   const pauseButton = carousel.querySelector('.product-pause');
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   let current = 0;
-  let paused = reducedMotion.matches;
+  let paused = false;
   let timer;
   function show(index) {
     current = (index + slides.length) % slides.length;
@@ -32,7 +31,7 @@ if (carousel) {
     [...dots.children].forEach((dot, i) => dot.setAttribute('aria-current', String(i === current)));
     count.textContent = `${current + 1} / ${slides.length}`;
   }
-  function schedule() { clearInterval(timer); if (!paused) timer = setInterval(() => show(current + 1), 5000); }
+  function schedule() { clearInterval(timer); if (!paused) timer = setInterval(() => show(current + 1), 4000); }
   slides.forEach((slide, i) => { const dot = document.createElement('button'); dot.type = 'button'; dot.setAttribute('aria-label', `Mostrar produto ${i + 1}`); dot.addEventListener('click', () => { show(i); schedule(); }); dots.appendChild(dot); });
   carousel.querySelector('.product-prev').addEventListener('click', () => { show(current - 1); schedule(); });
   carousel.querySelector('.product-next').addEventListener('click', () => { show(current + 1); schedule(); });
