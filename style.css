@@ -26,3 +26,6 @@
 
 /* Logotipo da marca no cabeçalho e rodapé. */
 .logo .brand-image{display:block;width:240px;max-width:100%;height:auto;background:#fff;border-radius:4px;padding:3px}.header .logo{min-width:0;max-width:60%}footer .logo{width:max-content;max-width:100%}@media(max-width:380px){.header .logo{max-width:58%}.logo .brand-image{width:205px}.head-contact{gap:4px}}
+
+/* Logo transparente sobre o fundo do site. */
+.logo .brand-image{background:transparent;padding:0}
