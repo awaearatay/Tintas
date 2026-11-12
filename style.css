@@ -23,3 +23,6 @@
 .product-ferrugem{background-image:url('assets/maza-ferrugem.jpg');background-size:cover;background-position:65% 100%}
 .product-grafeno{background-image:url('assets/maza-grafeno.jpg');background-size:150% auto;background-position:64% 79%}
 .product-piscinas{background-image:url('assets/maza-piscinas.jpg');background-size:cover;background-position:center bottom}
+
+/* Logotipo da marca no cabeçalho e rodapé. */
+.logo .brand-image{display:block;width:240px;max-width:100%;height:auto;background:#fff;border-radius:4px;padding:3px}.header .logo{min-width:0;max-width:60%}footer .logo{width:max-content;max-width:100%}@media(max-width:380px){.header .logo{max-width:58%}.logo .brand-image{width:205px}.head-contact{gap:4px}}
