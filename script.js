@@ -21,7 +21,6 @@ if (carousel) {
   const dots = carousel.querySelector('.product-dots');
   const count = document.querySelector('.product-count');
   const pauseButton = carousel.querySelector('.product-pause');
-  const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const firstClone = slides[0].cloneNode(true);
   const lastClone = slides[slides.length - 1].cloneNode(true);
   [firstClone, lastClone].forEach(clone => {
@@ -34,9 +33,10 @@ if (carousel) {
   let moving = false;
   let paused = false;
   let timer;
+  let finishTimer;
   let touchX = null;
   function paint(animate = true) {
-    track.style.transition = animate && !motion.matches ? 'transform 700ms ease-in-out' : 'none';
+    track.classList.toggle('is-resetting', !animate);
     track.style.transform = `translate3d(-${position * 100}%, 0, 0)`;
     const selected = (position - 1 + slides.length) % slides.length;
     slides.forEach((slide, i) => {
@@ -48,9 +48,11 @@ if (carousel) {
   }
   function settle() {
     if (!moving) return;
+    clearTimeout(finishTimer);
     if (position === 0) position = slides.length;
     if (position === slides.length + 1) position = 1;
     paint(false);
+    void track.offsetWidth;
     moving = false;
   }
   function moveTo(next) {
@@ -58,8 +60,7 @@ if (carousel) {
     position = next;
     moving = true;
     paint(true);
-    if (motion.matches) settle();
-    else setTimeout(settle, 1000);
+    finishTimer = setTimeout(settle, 2200);
   }
   function schedule() {
     clearInterval(timer);

@@ -48,3 +48,7 @@
 
 /* Logo transparente e pincelada amarela preservada na arte principal. */
 .art-top .art-brand-mask{background:transparent;left:24%;top:8.7%;width:52%;height:auto;padding:0}
+
+/* Movimento visível e contínuo entre os produtos. */
+.product-track{transition:transform 1.8s ease-in-out!important}
+.product-track.is-resetting{transition:none!important}
