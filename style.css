@@ -29,3 +29,6 @@
 
 /* Logo transparente sobre o fundo do site. */
 .logo .brand-image{background:transparent;padding:0}
+
+/* Transição suave do carrossel em telas de todos os tamanhos. */
+.product-track{will-change:transform;touch-action:pan-y}.product-slide{width:100%}
