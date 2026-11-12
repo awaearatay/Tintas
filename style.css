@@ -45,3 +45,6 @@
 .team-brand{position:absolute;left:59.5%;top:39%;width:15%;background:#263951;display:flex;align-items:center;justify-content:center}
 .about .team-brand img{width:100%;height:auto;border-radius:0}
 @media(max-width:380px){.team-frame{height:180px}}
+
+/* Logo transparente e pincelada amarela preservada na arte principal. */
+.art-top .art-brand-mask{background:transparent;left:24%;top:8.7%;width:52%;height:auto;padding:0}
