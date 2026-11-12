@@ -59,6 +59,7 @@ if (carousel) {
     moving = true;
     paint(true);
     if (motion.matches) settle();
+    else setTimeout(settle, 1000);
   }
   function schedule() {
     clearInterval(timer);
