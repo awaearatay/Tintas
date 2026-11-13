@@ -59,7 +59,7 @@
   display: block;
   position: relative;
   width: 100%;
-  aspect-ratio: 2.55;
+  aspect-ratio: 2.35;
   padding: 0;
   border: 0;
   background: transparent;
@@ -91,7 +91,7 @@
 
 .liquid-logo-pause { display: none; }
 @media (pointer: coarse), (max-width: 520px) {
-  .liquid-logo { aspect-ratio: 2.35; }
+  .liquid-logo { aspect-ratio: 2.16; }
   .liquid-logo-pause:not([hidden]) {
     display: block;
     min-height: 44px;
