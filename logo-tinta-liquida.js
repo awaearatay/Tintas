@@ -23,20 +23,33 @@
     });
   }
 
+  const effects = [
+    { id: 'wave', duration: 3400 },
+    { id: 'assemble', duration: 4500 },
+    { id: 'swirl', duration: 3800 },
+    { id: 'light', duration: 3400 }
+  ];
+  const pause = 1050;
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const pointer = { x: 0.5, y: 0.5, targetX: 0.5, targetY: 0.5, force: 0, inside: false };
-  const wave = { start: -Infinity, origin: 0 };
+  const dust = [];
   let width = 0;
   let height = 0;
   let frame = 0;
   let lastTime = 0;
+  let visible = false;
+  let effectIndex = 0;
+  let effectTime = 0;
+  let pulseStart = -Infinity;
+  let pulseOrigin = 0;
 
   function requestDraw() {
-    if (!frame) frame = requestAnimationFrame(draw);
+    if (!frame && !document.hidden) frame = requestAnimationFrame(draw);
   }
 
   function resize() {
     const rect = stage.getBoundingClientRect();
+    if (rect.width === width && rect.height === height) return;
     width = rect.width;
     height = rect.height;
     const ratio = Math.min(devicePixelRatio || 1, 2.5);
@@ -48,15 +61,34 @@
 
   function draw(now) {
     frame = 0;
-    if (width === 0 || height === 0) return;
-    const elapsed = lastTime ? Math.min(now - lastTime, 36) : 16;
+    if (!width || !height) return;
+
+    const dt = lastTime ? Math.min(40, now - lastTime) : 16;
     lastTime = now;
-    const blend = 1 - Math.exp(-elapsed / 95);
+    const blend = 1 - Math.exp(-dt / 95);
+    const motion = !reduceMotion.matches;
+    const target = motion && pointer.inside ? 1 : 0;
     pointer.x += (pointer.targetX - pointer.x) * blend;
     pointer.y += (pointer.targetY - pointer.y) * blend;
-    const targetForce = !reduceMotion.matches && pointer.inside ? 1 : 0;
-    pointer.force += (targetForce - pointer.force) * blend;
-    if (!targetForce && pointer.force < 0.006) pointer.force = 0;
+    pointer.force += (target - pointer.force) * blend;
+    if (!motion || (!target && pointer.force < 0.006)) pointer.force = 0;
+
+    if (visible && motion && !target) {
+      effectTime += dt;
+      if (effectTime >= effects[effectIndex].duration + pause) {
+        effectTime = 0;
+        effectIndex = (effectIndex + 1) % effects.length;
+      }
+    }
+    const effect = effects[effectIndex];
+    const progress = Math.min(1, effectTime / effect.duration);
+    const strength = motion && progress < 1
+      ? Math.sin(Math.PI * progress) * (1 - pointer.force) : 0;
+    const dissolve = strength ** 1.7;
+    const waveFront = progress * 1.42 - 0.21;
+    const sweep = progress * 1.58 - 0.29;
+    const sweepAngle = sweep * 0.18;
+    stage.dataset.effect = target ? 'hover' : effect.id;
 
     const logoWidth = width * 0.89;
     const logoHeight = logoWidth * rows / columns;
@@ -66,16 +98,51 @@
     const cursorX = pointer.x * width;
     const cursorY = pointer.y * height;
     const radiusSquared = Math.max(52, logoWidth * 0.24) ** 2;
-    const waveAge = (now - wave.start) / 1000;
-    const waveActive = waveAge < 2.5 && !reduceMotion.matches;
-    const envelope = waveActive ? (1 - Math.exp(-waveAge * 7)) * (1 - waveAge / 2.5) ** 1.4 : 0;
+    const pulseAge = (now - pulseStart) / 1000;
+    const pulseActive = motion && pulseAge < 2.1;
+    const pulseAmount = pulseActive ? Math.sin(Math.PI * pulseAge / 2.1) * logoWidth * 0.022 : 0;
 
     context.clearRect(0, 0, width, height);
+    dust.length = 0;
     for (const group of groups) {
       context.beginPath();
       for (const point of group.points) {
         let x = left + point.x * logoWidth;
         let y = top + point.y * logoHeight;
+        let size = dotSize * point.size;
+
+        if (strength > 0.0001) {
+          if (effect.id === 'wave') {
+            const distance = point.x - waveFront;
+            const crest = Math.exp(-14 * distance * distance);
+            const phase = distance * 17 + point.y * 1.9;
+            y += Math.sin(phase) * crest * logoHeight * 0.20 * strength;
+            x += Math.cos(phase) * crest * logoWidth * 0.012 * strength;
+          } else if (effect.id === 'assemble') {
+            const phase = point.x * 13 + point.y * 4;
+            const grain = 0.64 + 0.36 * Math.sin(point.x * 381 + point.y * 217);
+            const stream = Math.sin(phase) * (0.42 + grain * 0.58);
+            x += (point.y - 0.5) * stream * logoWidth * 0.16 * dissolve;
+            y += (stream * 0.24 - grain * 0.17) * logoHeight * dissolve;
+            size *= 1 - dissolve * (0.34 + grain * 0.34);
+          } else if (effect.id === 'swirl') {
+            const center = 0.31 + progress * 0.38;
+            const dx = point.x - center;
+            const dy = point.y - 0.52;
+            const rotation = 1.25 * strength * Math.exp(-23 * dx * dx - 3.2 * dy * dy);
+            const sine = Math.sin(rotation);
+            const cosine = Math.cos(rotation);
+            x += (dx * (cosine - 1) - dy * sine * 0.23) * logoWidth;
+            y += (dx * sine / 0.40 + dy * (cosine - 1)) * logoHeight;
+          } else {
+            const distance = Math.abs(point.x - (sweep + (point.y - 0.5) * 0.18));
+            const glow = Math.max(0, 1 - distance * 7) * strength;
+            y -= glow * logoHeight * 0.055;
+            size *= 1 + glow * 0.48;
+            if (glow > 0.34) dust.push(x, y, size * 0.67);
+          }
+        }
+
         if (pointer.force > 0) {
           const dx = x - cursorX;
           const dy = y - cursorY;
@@ -84,30 +151,37 @@
           x -= dy * curl;
           y += dx * curl;
         }
-        if (waveActive) {
-          const distance = Math.abs(point.x - wave.origin);
-          const band = Math.max(0, 1 - Math.abs(distance - waveAge * 0.57) * 3.6);
-          const swell = envelope * band * logoWidth * 0.025;
-          const phase = distance * 18 - waveAge * 7 + point.y * 3;
-          x += Math.sin(phase) * swell * 0.48;
-          y += Math.sin(phase + point.y * 1.1) * swell;
+        if (pulseActive) {
+          const distance = Math.abs(point.x - pulseOrigin);
+          const band = Math.max(0, 1 - Math.abs(distance - pulseAge * 0.65) * 4);
+          y += Math.sin(distance * 18 - pulseAge * 7 + point.y * 4) * band * pulseAmount;
         }
-        const size = dotSize * point.size;
+
         context.moveTo(x + size, y);
         context.arc(x, y, size, 0, Math.PI * 2);
       }
       context.fillStyle = group.color;
       context.fill();
     }
+    if (dust.length) {
+      const center = left + (sweep + sweepAngle * 0.1) * logoWidth;
+      const glow = context.createLinearGradient(center - logoWidth * 0.15, 0, center + logoWidth * 0.15, 0);
+      glow.addColorStop(0, '#d95d99');
+      glow.addColorStop(0.35, '#ffb124');
+      glow.addColorStop(0.53, '#fffce4');
+      glow.addColorStop(0.74, '#45c5e7');
+      glow.addColorStop(1, '#7951d4');
+      context.beginPath();
+      for (let i = 0; i < dust.length; i += 3) {
+        const [x, y, size] = [dust[i], dust[i + 1], dust[i + 2]];
+        context.moveTo(x + size, y);
+        context.arc(x, y, size, 0, Math.PI * 2);
+      }
+      context.fillStyle = glow;
+      context.fill();
+    }
     stage.classList.add('liquid-logo-ready');
-    if (waveActive || targetForce || pointer.force > 0) requestDraw();
-  }
-
-  function pulse(origin) {
-    if (reduceMotion.matches) return;
-    wave.start = performance.now();
-    wave.origin = origin;
-    requestDraw();
+    if (visible && motion) requestDraw();
   }
 
   function follow(event) {
@@ -128,6 +202,13 @@
     requestDraw();
   }
 
+  function pulse(origin) {
+    if (reduceMotion.matches) return;
+    pulseStart = performance.now();
+    pulseOrigin = origin;
+    requestDraw();
+  }
+
   stage.addEventListener('pointerenter', follow);
   stage.addEventListener('pointermove', follow);
   stage.addEventListener('pointerleave', release);
@@ -142,15 +223,22 @@
   stage.addEventListener('click', event => {
     if (event.detail === 0) pulse(0.18);
   });
+
   reduceMotion.addEventListener('change', requestDraw);
+  document.addEventListener('visibilitychange', () => {
+    lastTime = 0;
+    if (document.hidden) {
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+    } else {
+      requestDraw();
+    }
+  });
   new ResizeObserver(resize).observe(stage);
   resize();
-
-  const observer = new IntersectionObserver(entries => {
-    if (entries.some(entry => entry.isIntersecting)) {
-      pulse(0);
-      observer.disconnect();
-    }
-  }, { threshold: 0.35 });
-  observer.observe(stage);
+  new IntersectionObserver(entries => {
+    visible = entries[0].isIntersecting;
+    if (!visible) pointer.inside = false;
+    requestDraw();
+  }, { threshold: 0.1 }).observe(stage);
 })();
