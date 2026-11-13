@@ -88,3 +88,17 @@
   height: 100%;
 }
 .liquid-logo-ready img { visibility: hidden; }
+
+.liquid-logo-touch { display: none; }
+@media (pointer: coarse), (max-width: 520px) {
+  .liquid-logo { aspect-ratio: 2.35; }
+  #logo-tinta-liquida:has(.liquid-logo-ready) .liquid-logo-touch {
+    display: block;
+    margin: 0;
+    padding: 0 12px 12px;
+    color: #4e3c60;
+    text-align: center;
+    font-size: 0.75rem;
+    line-height: 1.35;
+  }
+}
