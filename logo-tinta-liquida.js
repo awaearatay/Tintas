@@ -4,6 +4,7 @@
 
   const canvas = stage.querySelector('canvas');
   const context = canvas.getContext('2d');
+  const pauseButton = document.querySelector('.liquid-logo-pause');
   if (!context) return;
 
   const columns = 237;
@@ -52,6 +53,11 @@
   let touchId = null;
   let playOnce = false;
   let onceRemaining = 0;
+  let mobilePaused = false;
+
+  function motionEnabled() {
+    return mobile.matches ? !mobilePaused : !reduceMotion.matches || playOnce;
+  }
 
   function requestDraw() {
     if (!frame && !document.hidden) frame = requestAnimationFrame(draw);
@@ -75,7 +81,7 @@
 
     const isMobile = mobile.matches;
     const elapsed = lastTime ? now - lastTime : 16;
-    const motion = !reduceMotion.matches || playOnce;
+    const motion = motionEnabled();
     if (isMobile && visible && motion && lastTime && elapsed < 29) {
       requestDraw();
       return;
@@ -103,8 +109,10 @@
     const strength = motion && progress < 1
       ? Math.sin(Math.PI * progress) * (1 - pointer.force) : 0;
     const amplitude = isMobile ? 1.22 : 1;
-    const dissolve = strength ** 1.7;
-    const waveFront = progress * 1.42 - 0.21;
+    const gentle = isMobile && reduceMotion.matches ? 0.52 : 1;
+    const displacement = strength * gentle;
+    const dissolve = displacement ** 1.7;
+    const waveFront = progress * 1.42 - (isMobile ? 0.10 : 0.21);
     const sweep = progress * 1.58 - 0.29;
     const sweepAngle = sweep * 0.18;
     stage.dataset.effect = target ? 'hover' : effect.id;
@@ -119,7 +127,7 @@
     const radiusSquared = Math.max(52, logoWidth * 0.24) ** 2;
     const pulseAge = (now - pulseStart) / 1000;
     const pulseActive = motion && pulseAge < 2.1;
-    const pulseAmount = pulseActive ? Math.sin(Math.PI * pulseAge / 2.1) * logoWidth * 0.022 * amplitude : 0;
+    const pulseAmount = pulseActive ? Math.sin(Math.PI * pulseAge / 2.1) * logoWidth * 0.022 * amplitude * gentle : 0;
 
     context.clearRect(0, 0, width, height);
     dust.length = 0;
@@ -135,8 +143,8 @@
             const distance = point.x - waveFront;
             const crest = Math.exp(-14 * distance * distance);
             const phase = distance * 17 + point.y * 1.9;
-            y += Math.sin(phase) * crest * logoHeight * 0.20 * strength * amplitude;
-            x += Math.cos(phase) * crest * logoWidth * 0.012 * strength;
+            y += Math.sin(phase) * crest * logoHeight * 0.20 * displacement * amplitude;
+            x += Math.cos(phase) * crest * logoWidth * 0.012 * displacement;
           } else if (effect.id === 'assemble') {
             const phase = point.x * 13 + point.y * 4;
             const grain = 0.64 + 0.36 * Math.sin(point.x * 381 + point.y * 217);
@@ -148,7 +156,7 @@
             const center = 0.31 + progress * 0.38;
             const dx = point.x - center;
             const dy = point.y - 0.52;
-            const rotation = 1.25 * strength * Math.exp(-23 * dx * dx - 3.2 * dy * dy);
+            const rotation = 1.25 * displacement * Math.exp(-23 * dx * dx - 3.2 * dy * dy);
             const sine = Math.sin(rotation);
             const cosine = Math.cos(rotation);
             x += (dx * (cosine - 1) - dy * sine * 0.23) * logoWidth;
@@ -166,7 +174,7 @@
           const dx = x - cursorX;
           const dy = y - cursorY;
           const proximity = Math.max(0, 1 - (dx * dx + dy * dy) / radiusSquared);
-          const curl = pointer.force * proximity ** 2 * (0.55 + 0.11 * Math.sin(now * 0.0022 + point.y * 4));
+          const curl = pointer.force * gentle * proximity ** 2 * (0.55 + 0.11 * Math.sin(now * 0.0022 + point.y * 4));
           x -= dy * curl;
           y += dx * curl;
         }
@@ -200,7 +208,7 @@
       context.fill();
     }
     stage.classList.add('liquid-logo-ready');
-    if (visible && (!reduceMotion.matches || playOnce)) requestDraw();
+    if (visible && motionEnabled()) requestDraw();
   }
 
   function follow(event) {
@@ -222,7 +230,8 @@
   }
 
   function pulse(origin) {
-    if (reduceMotion.matches && !playOnce) {
+    if (mobile.matches && mobilePaused) return;
+    if (!mobile.matches && reduceMotion.matches && !playOnce) {
       playOnce = true;
       onceRemaining = effects.length;
       effectIndex = 0;
@@ -276,6 +285,22 @@
     if (event.detail === 0) pulse(0.18);
   });
 
+  if (pauseButton) {
+    pauseButton.hidden = false;
+    pauseButton.addEventListener('click', () => {
+      mobilePaused = !mobilePaused;
+      pauseButton.textContent = mobilePaused ? 'Retomar animação' : 'Pausar animação';
+      lastTime = 0;
+      if (mobilePaused) {
+        touchId = null;
+        pointer.inside = false;
+        pointer.force = 0;
+        pulseStart = -Infinity;
+      }
+      requestDraw();
+    });
+  }
+
   const motionChanged = () => {
     playOnce = false;
     onceRemaining = 0;
@@ -283,6 +308,8 @@
   };
   if (reduceMotion.addEventListener) reduceMotion.addEventListener('change', motionChanged);
   else reduceMotion.addListener(motionChanged);
+  if (mobile.addEventListener) mobile.addEventListener('change', motionChanged);
+  else mobile.addListener(motionChanged);
   document.addEventListener('visibilitychange', () => {
     lastTime = 0;
     if (document.hidden) {
@@ -296,7 +323,10 @@
     if (visible === next) return;
     visible = next;
     lastTime = 0;
-    if (!visible) {
+    if (visible && mobile.matches && !mobilePaused) {
+      effectIndex = 0;
+      effectTime = 220;
+    } else if (!visible) {
       touchId = null;
       pointer.inside = false;
       pointer.force = 0;
@@ -304,21 +334,22 @@
     requestDraw();
   }
 
+  function checkPosition() {
+    const rect = stage.getBoundingClientRect();
+    setVisible(rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight);
+  }
+
   if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
   window.addEventListener('resize', resize, { passive: true });
   resize();
+  checkPosition();
   if (window.IntersectionObserver) {
     new IntersectionObserver(entries => {
       const entry = entries[entries.length - 1];
       setVisible(entry.isIntersecting && entry.intersectionRatio > 0);
     }, { threshold: [0, 0.01] }).observe(stage);
   } else {
-    const checkPosition = () => {
-      const rect = stage.getBoundingClientRect();
-      setVisible(rect.bottom > 0 && rect.top < window.innerHeight);
-    };
     window.addEventListener('scroll', checkPosition, { passive: true });
     window.addEventListener('resize', checkPosition, { passive: true });
-    checkPosition();
   }
 })();
